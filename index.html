@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Wallround Außendienst KPI Demo</title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-50 text-gray-900 p-6">
+        <div class="max-w-4xl mx-auto space-y-6">
+            <h1 class="text-2xl font-bold">Wallround KPI Demo: Ticketklassifikation</h1>
+
+            <!-- Beispiel-Tickets -->
+            <section class="space-y-2">
+                <h2 class="text-lg font-semibold">Beispiel-Tickets:</h2>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        class="example-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+                        data-text="Fenster im dritten Stock schließt nicht richtig. Es zieht rein. Bitte dringend prüfen."
+                    >
+                        Fenster und Zugluft
+                    </button>
+                    <button
+                        class="example-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+                        data-text="Wasser tropft von der Decke in der Küche, vermutlich Rohrleitung beschädigt."
+                    >
+                        Wasserschaden Küche
+                    </button>
+                    <button
+                        class="example-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+                        data-text="Schließmechanismus der Kellertür defekt, lässt sich nicht mehr absperren."
+                    >
+                        Kellertür defekt
+                    </button>
+                    <button
+                        class="example-btn bg-gray-200 hover:bg-gray-300 px-3 py-1 rounded"
+                        data-text="Fensterrahmen im Büro verzogen, schließt nicht mehr sauber."
+                    >
+                        Bürofenster verzogen
+                    </button>
+                </div>
+            </section>
+
+            <!-- Textformular -->
+            <form id="form" class="space-y-2">
+                <textarea
+                    id="desc"
+                    rows="4"
+                    class="w-full border border-gray-300 rounded p-2"
+                    placeholder="Problembeschreibung eingeben..."
+                ></textarea>
+                <button
+                    type="submit"
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded"
+                >
+                    Absenden
+                </button>
+            </form>
+
+            <!-- Analyse-Ergebnis -->
+            <div
+                id="result"
+                class="whitespace-pre-wrap font-mono bg-white border p-4 rounded shadow text-sm"
+            ></div>
+
+            <!-- KPI-Charts -->
+            <h2 class="text-xl font-semibold">KPI Übersicht</h2>
+            <p class="text-sm text-gray-600">
+                Die folgenden Auswertungen basieren auf den in Notion gespeicherten Tickets.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="text-md font-semibold mb-2">Tickets nach Priorität</h3>
+                    <canvas id="chartPriorities" class="w-full"></canvas>
+                </div>
+                <div class="bg-white p-4 rounded shadow">
+                    <h3 class="text-md font-semibold mb-2">Tickets nach Bereich</h3>
+                    <canvas id="chartBereiche" class="w-full"></canvas>
+                </div>
+                <div class="bg-white p-4 rounded shadow md:col-span-2">
+                    <h3 class="text-md font-semibold mb-2">Tickets nach Typ</h3>
+                    <canvas id="chartTypen" class="w-full"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const form = document.getElementById('form');
+            const resultDiv = document.getElementById('result');
+
+            // Beispiel-Ticket Buttons aktivieren
+            document.querySelectorAll('.example-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    document.getElementById('desc').value = btn.getAttribute('data-text');
+                });
+            });
+
+            // Charts
+            let chartPriorities, chartBereiche, chartTypen;
+
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                const description = document.getElementById('desc').value;
+                const res = await fetch('https://secmatt.app.n8n.cloud/webhook-test/wr/ticket', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ description }),
+                });
+                const data = await res.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+                loadMetrics();
+            };
+
+            async function loadMetrics() {
+                const res = await fetch('https://secmatt.app.n8n.cloud/webhook-test/wr/metrics');
+                const [data] = await res.json(); // erste Element des Arrays
+
+                // Clear old charts
+                chartPriorities?.destroy();
+                chartBereiche?.destroy();
+                chartTypen?.destroy();
+
+                chartPriorities = new Chart(document.getElementById('chartPriorities'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.series.priorities.labels,
+                        datasets: [
+                            {
+                                label: 'Priorität',
+                                data: data.series.priorities.values,
+                                backgroundColor: '#3b82f6',
+                            },
+                        ],
+                    },
+                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                });
+
+                chartBereiche = new Chart(document.getElementById('chartBereiche'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.series.bereiche.labels,
+                        datasets: [
+                            {
+                                label: 'Bereiche',
+                                data: data.series.bereiche.values,
+                                backgroundColor: '#10b981',
+                            },
+                        ],
+                    },
+                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                });
+
+                chartTypen = new Chart(document.getElementById('chartTypen'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.series.typen.labels,
+                        datasets: [
+                            {
+                                label: 'Typen',
+                                data: data.series.typen.values,
+                                backgroundColor: '#f59e0b',
+                            },
+                        ],
+                    },
+                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                });
+            }
+
+            loadMetrics(); // initial load
+        </script>
+    </body>
+</html>
+
