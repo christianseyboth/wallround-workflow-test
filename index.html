@@ -102,7 +102,7 @@
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const description = document.getElementById('desc').value;
-                const res = await fetch('https://secmatt.app.n8n.cloud/webhook-test/wr/ticket', {
+                const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/ticket', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ description }),
