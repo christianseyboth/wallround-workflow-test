@@ -113,7 +113,7 @@
             };
 
             async function loadMetrics() {
-                const res = await fetch('https://secmatt.app.n8n.cloud/wr/metrics');
+                const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/metrics');
                 const [data] = await res.json(); // erste Element des Arrays
 
                 // Clear old charts
