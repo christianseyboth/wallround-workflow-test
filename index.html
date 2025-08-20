@@ -6,7 +6,25 @@
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script src="https://cdn.tailwindcss.com"></script>
     </head>
-    <body class="bg-gray-50 text-gray-900 p-6">
+    <body class="bg-gray-50 text-gray-900 p-6 relative">
+        <!-- Ladeindikator -->
+        <div
+            id="loading"
+            class="hidden fixed inset-0 z-50 bg-white/70 flex items-center justify-center backdrop-blur-sm"
+        >
+            <div
+                class="h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"
+            ></div>
+        </div>
+
+        <!-- Toast Feedback -->
+        <div
+            id="toast"
+            class="hidden fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-md z-50"
+        >
+            <span id="toastMessage">Toast</span>
+        </div>
+
         <div class="max-w-4xl mx-auto space-y-6">
             <h1 class="text-2xl font-bold">Wallround KPI Demo: Ticketklassifikation</h1>
 
@@ -61,7 +79,8 @@
             <div
                 id="result"
                 class="whitespace-pre-wrap font-mono bg-white border p-4 rounded shadow text-sm"
-            ></div>
+            >
+            </div>
 
             <!-- KPI-Charts -->
             <h2 class="text-xl font-semibold">KPI Übersicht</h2>
@@ -88,86 +107,125 @@
         <script>
             const form = document.getElementById('form');
             const resultDiv = document.getElementById('result');
+            const loading = document.getElementById('loading');
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
 
-            // Beispiel-Ticket Buttons aktivieren
+            function showLoading() {
+                loading.classList.remove('hidden');
+            }
+
+            function hideLoading() {
+                loading.classList.add('hidden');
+            }
+
+            function showToast(msg, timeout = 3000) {
+                toastMessage.textContent = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, timeout);
+            }
+
+            // Beispiel-Tickets aktivieren
             document.querySelectorAll('.example-btn').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     document.getElementById('desc').value = btn.getAttribute('data-text');
                 });
             });
 
-            // Charts
             let chartPriorities, chartBereiche, chartTypen;
 
             form.onsubmit = async (e) => {
                 e.preventDefault();
                 const description = document.getElementById('desc').value;
-                const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/ticket', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ description }),
-                });
-                const data = await res.json();
-                resultDiv.textContent = JSON.stringify(data, null, 2);
-                loadMetrics();
+                resultDiv.textContent = '';
+                showLoading();
+                try {
+                    const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/ticket', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description }),
+                    });
+                    const data = await res.json();
+                    resultDiv.textContent = JSON.stringify(data, null, 2);
+                    showToast('Ticket erfolgreich klassifiziert');
+                    await loadMetrics();
+                } catch (err) {
+                    console.error(err);
+                    resultDiv.textContent = 'Fehler beim Laden.';
+                    showToast('Fehler beim Klassifizieren', 4000);
+                } finally {
+                    hideLoading();
+                }
             };
 
             async function loadMetrics() {
-                const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/metrics');
-                const [data] = await res.json(); // erste Element des Arrays
+                showLoading();
+                try {
+                    const res = await fetch('https://secmatt.app.n8n.cloud/webhook/wr/metrics');
+                    const [data] = await res.json();
 
-                // Clear old charts
-                chartPriorities?.destroy();
-                chartBereiche?.destroy();
-                chartTypen?.destroy();
+                    chartPriorities?.destroy();
+                    chartBereiche?.destroy();
+                    chartTypen?.destroy();
 
-                chartPriorities = new Chart(document.getElementById('chartPriorities'), {
-                    type: 'bar',
-                    data: {
-                        labels: data.series.priorities.labels,
-                        datasets: [
-                            {
-                                label: 'Priorität',
-                                data: data.series.priorities.values,
-                                backgroundColor: '#3b82f6',
-                            },
-                        ],
-                    },
-                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
-                });
+                    chartPriorities = new Chart(document.getElementById('chartPriorities'), {
+                        type: 'bar',
+                        data: {
+                            labels: data.series.priorities.labels,
+                            datasets: [
+                                {
+                                    label: 'Priorität',
+                                    data: data.series.priorities.values,
+                                    backgroundColor: '#3b82f6',
+                                },
+                            ],
+                        },
+                        options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                    });
 
-                chartBereiche = new Chart(document.getElementById('chartBereiche'), {
-                    type: 'bar',
-                    data: {
-                        labels: data.series.bereiche.labels,
-                        datasets: [
-                            {
-                                label: 'Bereiche',
-                                data: data.series.bereiche.values,
-                                backgroundColor: '#10b981',
-                            },
-                        ],
-                    },
-                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
-                });
+                    chartBereiche = new Chart(document.getElementById('chartBereiche'), {
+                        type: 'bar',
+                        data: {
+                            labels: data.series.bereiche.labels,
+                            datasets: [
+                                {
+                                    label: 'Bereiche',
+                                    data: data.series.bereiche.values,
+                                    backgroundColor: '#10b981',
+                                },
+                            ],
+                        },
+                        options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                    });
 
-                chartTypen = new Chart(document.getElementById('chartTypen'), {
-                    type: 'bar',
-                    data: {
-                        labels: data.series.typen.labels,
-                        datasets: [
-                            {
-                                label: 'Typen',
-                                data: data.series.typen.values,
-                                backgroundColor: '#f59e0b',
-                            },
-                        ],
-                    },
-                    options: { responsive: true, scales: { y: { beginAtZero: true } } },
-                });
+                    chartTypen = new Chart(document.getElementById('chartTypen'), {
+                        type: 'bar',
+                        data: {
+                            labels: data.series.typen.labels,
+                            datasets: [
+                                {
+                                    label: 'Typen',
+                                    data: data.series.typen.values,
+                                    backgroundColor: '#f59e0b',
+                                },
+                            ],
+                        },
+                        options: { responsive: true, scales: { y: { beginAtZero: true } } },
+                    });
+                } catch (err) {
+                    console.error(err);
+                    showToast('Fehler beim Laden der Metriken', 4000);
+                } finally {
+                    hideLoading();
+                }
             }
 
-            loadMetrics(); // initial load
+            document.addEventListener('DOMContentLoaded', () => {
+                showLoading();
+                loadMetrics();
+            });
         </script>
     </body>
 </html>
